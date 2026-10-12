@@ -1,26 +1,114 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0d1117;
+  --bg-elevated: #161b22;
+  --bg-muted: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  /** Completion heat ramp (logo blue family; not for subjects). */
+  --calendar-heat-deep: #2a4470;
+  --calendar-heat: #3d6a9e;
+  --calendar-heat-bright: color-mix(in srgb, var(--accent) 38%, var(--calendar-heat));
+  /** Phase block outline on calendar — soft neutral (matches selection / dashboard chrome). */
+  --phase-gap-marker: color-mix(in srgb, var(--text) 58%, transparent);
+  --phase-outline-radius: 8px;
+  --phase-outline-width: 1px;
+  --calendar-selection-ring: color-mix(in srgb, var(--text) 52%, transparent);
+  --accent-green: #3fb950;
+  --accent-amber: #d29922;
+  --danger: #f85149;
+  /** Sticky panels below AppShell header (measured in AppShellStickyOffset). */
+  --app-header-height: 4.5rem;
+  --sticky-panel-gap: 1rem;
+  --sticky-panel-bottom-gap: 1rem;
+  --sticky-panel-top: calc(
+    var(--app-header-height) + var(--sticky-panel-gap)
+  );
+  --sticky-panel-max-height: calc(
+    100dvh - var(--sticky-panel-top) - var(--sticky-panel-bottom-gap)
+  );
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn:disabled,
+.btn[disabled] {
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: #238636;
+  border-color: #2ea043;
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #2ea043;
+  color: #fff;
+}
+.btn-danger {
+  background: var(--danger);
+  border-color: #e5534b;
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #e5534b;
+  border-color: #ff6b63;
+  color: #fff;
+}
+.btn.btn-trash {
+  color: var(--text);
+}
+.btn.btn-trash:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.btn-schedule {
+  color: var(--text);
+}
+.btn-schedule:hover:not(:disabled) {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+}
+.input {
+  @apply w-full rounded-md px-3 py-2 text-sm outline-none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.input:focus {
+  border-color: var(--accent);
 }

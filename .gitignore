@@ -1,6 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +8,57 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Next.js
 /.next/
 /out/
+next-env.d.ts
 
-# production
+# Production / build artifacts
 /build
+/dist
+*.tsbuildinfo
 
-# misc
-.DS_Store
-*.pem
+# Testing
+/coverage
 
-# debug
+# Environment and secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Vercel / hosting
+.vercel
+
+# Local SQLite database and WAL sidecars (each developer gets their own)
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# OS
+.DS_Store
+Thumbs.db
 
-# vercel
-.vercel
+# Editors / IDE (personal settings stay local)
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Cursor (local agent/editor state)
+.cursor/
+
+# Drizzle Kit local artifacts (if generated outside /data)
+/drizzle/meta/
+
+# Misc certificates
+*.pem

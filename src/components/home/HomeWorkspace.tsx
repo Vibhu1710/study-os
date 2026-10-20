@@ -48,20 +48,8 @@ import {
   parseDayDropId,
 } from "@/components/home/PlanTopicDragDrop";
 import { DateRangePickers } from "@/components/ui/DatePicker";
-import {
-  inclusiveDayCount,
-  MIN_PHASE_DAYS,
-  type DateString,
-} from "@/lib/date-span";
-import {
-  hasRoomForMinPhase,
-  maxDateString,
-  maxPhaseStartDate,
-  minDateString,
-  phaseEndLeavesShortRemainder,
-  phaseEndLockedToCycle,
-  toDateString,
-} from "@/lib/dates";
+import { inclusiveDayCount, type DateString } from "@/lib/date-span";
+import { maxDateString, minDateString, toDateString } from "@/lib/dates";
 import { canCompleteOnDay, canPlanOnDay } from "@/lib/study-day";
 import type { DayStat } from "@/components/calendar/ContributionCalendar";
 
@@ -806,24 +794,8 @@ function PhaseModal({
   const topicCount = isCreate ? createTopicIds.length : initialTopicIds.length;
   const phaseDays = start && end ? inclusiveDayCount(start, end) : 0;
   const objectiveEndDate = objectiveEnd as DateString;
-  const phaseStartMax = maxPhaseStartDate(objectiveEndDate);
-  const startTooLate =
-    start !== "" && !hasRoomForMinPhase(start, objectiveEndDate);
-  const endLocked =
-    start !== "" && phaseEndLockedToCycle(start, objectiveEndDate);
-  const phaseTooShort =
-    startTooLate || (start !== "" && end !== "" && phaseDays < MIN_PHASE_DAYS);
-
-  useEffect(() => {
-    if (!start) return;
-    if (endLocked) {
-      if (end !== objectiveEnd) setEnd(objectiveEnd as DateString);
-      return;
-    }
-    if (end && phaseEndLeavesShortRemainder(end, objectiveEnd as DateString)) {
-      setEnd(objectiveEnd as DateString);
-    }
-  }, [start, end, endLocked, objectiveEnd]);
+  const phaseDatesInvalid =
+    !start || !end || start > end || phaseDays < 1;
 
   const startMovedLater =
     !isCreate && initialPhase != null && start > initialPhase.startDate;
@@ -887,17 +859,12 @@ function PhaseModal({
                 onStartChange={setStart}
                 onEndChange={setEnd}
                 min={today as DateString}
-                max={minDateString(phaseStartMax, objectiveEndDate)}
-                minSpanDays={MIN_PHASE_DAYS}
+                max={objectiveEndDate}
+                minSpanDays={1}
                 cycleEndDate={objectiveEndDate}
-                endLockedToCycle={endLocked}
-                isEndDateDisabled={(d) =>
-                  phaseEndLeavesShortRemainder(d, objectiveEndDate)
-                }
                 endLegendExtra={[
-                  `Latest start for a ${MIN_PHASE_DAYS}-day phase: ${phaseStartMax}.`,
-                  "Crossed-out amber days are too short for a phase.",
-                  "Faded red days would leave 1–6 days in the cycle — pick cycle end instead.",
+                  `Phase dates must fall within the study cycle (through ${objectiveEndDate}).`,
+                  "A phase can be a single day or longer.",
                 ]}
                 startLabel="Phase start"
                 endLabel="Phase end"
@@ -909,17 +876,12 @@ function PhaseModal({
                 onStartChange={setStart}
                 onEndChange={setEnd}
                 min={editPhaseStartMin}
-                max={minDateString(phaseStartMax, objectiveEndDate)}
-                minSpanDays={MIN_PHASE_DAYS}
+                max={objectiveEndDate}
+                minSpanDays={1}
                 cycleEndDate={objectiveEndDate}
-                endLockedToCycle={endLocked}
-                isEndDateDisabled={(d) =>
-                  phaseEndLeavesShortRemainder(d, objectiveEnd)
-                }
                 endLegendExtra={[
-                  `Latest start for a ${MIN_PHASE_DAYS}-day phase: ${phaseStartMax}.`,
-                  "Crossed-out amber days are too short for a phase.",
-                  "Faded red days would leave 1–6 days in the cycle — pick cycle end instead.",
+                  `Phase dates must fall within the study cycle (through ${objectiveEnd}).`,
+                  "A phase can be a single day or longer.",
                 ]}
                 startLabel="Phase start"
                 endLabel="Phase end"
@@ -927,18 +889,16 @@ function PhaseModal({
             )}
             <p
               className={
-                phaseTooShort
+                phaseDatesInvalid && start && end
                   ? "text-xs text-[var(--danger)]"
                   : "text-xs text-[var(--text-muted)]"
               }
             >
-              {startTooLate
-                ? `This start leaves only ${inclusiveDayCount(start, objectiveEndDate)} day(s) until the cycle ends. A phase needs ${MIN_PHASE_DAYS} — start on or before ${phaseStartMax}.`
-                : endLocked
-                  ? `Ending earlier would leave less than a week in the cycle, so this phase runs through ${objectiveEnd}.`
-                  : phaseTooShort
-                    ? `This range is ${phaseDays} day${phaseDays === 1 ? "" : "s"}. A phase must last at least ${MIN_PHASE_DAYS} days.`
-                    : `At least ${MIN_PHASE_DAYS} days. An end that would leave 1–6 days in the cycle is not available.`}
+              {phaseDatesInvalid && start && end
+                ? "End must be on or after start, within the study cycle."
+                : phaseDays > 0
+                  ? `${phaseDays} day${phaseDays === 1 ? "" : "s"} in this phase (inclusive).`
+                  : "Pick start and end — any length from one day up to the cycle end."}
             </p>
             {isCreate && carryoverRows.length > 0 && (
               <div className="max-h-40 overflow-y-auto rounded border border-[var(--border)] p-2">
@@ -969,7 +929,7 @@ function PhaseModal({
             <button
               type="button"
               className="btn btn-primary disabled:opacity-40"
-              disabled={pending || phaseTooShort}
+              disabled={pending || phaseDatesInvalid}
               onClick={() => setConfirmOpen(true)}
             >
               {isCreate ? "Review & create" : "Review & save"}

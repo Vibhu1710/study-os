@@ -185,14 +185,32 @@ export function TopicEditModal({
             setError(null);
             if (isEdit && edit) {
               if (!readOnly) {
-                if (edit.subtopics.length === 0 && !edit.completedAt) {
-                  if (draftSubtopics.length === 1) {
+                if (edit.subtopics.length === 0) {
+                  if (edit.completedAt) {
+                    if (draftSubtopics.length > 0) {
+                      setError(
+                        "Subtopics cannot be added after this topic was completed as a leaf.",
+                      );
+                      return;
+                    }
+                    const w = parsePositiveWeight(weight);
+                    if (w == null) {
+                      setError(
+                        "Enter a valid numeric weight greater than zero.",
+                      );
+                      return;
+                    }
+                    await updateTopic(edit.id, {
+                      title,
+                      weight: w,
+                      notes: topicNotes.trim() || null,
+                    });
+                  } else if (draftSubtopics.length === 1) {
                     setError(
                       "If you add subtopics, include at least two — or leave subtopics empty for a leaf topic.",
                     );
                     return;
-                  }
-                  if (draftSubtopics.length >= 2) {
+                  } else if (draftSubtopics.length >= 2) {
                     await updateTopic(edit.id, {
                       title,
                       weight: draftSubtopicSum,

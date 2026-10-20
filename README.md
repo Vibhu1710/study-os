@@ -18,7 +18,8 @@ Built with **Next.js** (App Router), **React**, **SQLite** (`better-sqlite3`), a
 | **Day target panel** | Today’s plan, check off subtopics, day notes, topic notes, drag reschedule, topic edit/delete. |
 | **Phase targets** | Schedule/reschedule in-phase topics; active vs completed rows; weight remaining per topic. |
 | **Dashboard** | Phase progress, subject share, planned vs completed weight, 14-day velocity, drill-downs. |
-| **Settings** | Objective lifecycle, phase dates, subject/topic management entry points. |
+| **Momentum** | Sandglass sessions (start/end, odd/even flips, partials), effort heatmap, coverage compare toggle, daily bar charts. |
+| **Settings** | Objective lifecycle, phase dates, global sandglass minutes, subject/topic management entry points. |
 
 ### Core rules (product logic)
 
@@ -98,7 +99,7 @@ Optional maintenance scripts live in `scripts/` (e.g. demo seed, repair helpers)
 ```text
 study-os/
 ├── src/
-│   ├── app/              # Routes: /, /syllabus, /dashboard, /objectives, /settings
+│   ├── app/              # Routes: /, /syllabus, /rhythm, /dashboard, /objectives, /settings
 │   ├── components/       # UI by feature (home, syllabus, calendar, dashboard, …)
 │   ├── db/               # Schema, migrations, getDb()
 │   └── lib/              # Actions, services, progress/weight math, date helpers

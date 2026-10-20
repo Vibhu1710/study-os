@@ -5,14 +5,16 @@ import {
   getReactivatableArchivedObjective,
 } from "@/lib/objective-lifecycle";
 import { toDateString } from "@/lib/dates";
+import { fetchRhythmGlobalConfig } from "@/lib/actions/rhythm";
 
 export default async function SettingsPage() {
   const today = toDateString(new Date());
-  const [objectives, workspace, live, reactivatable] = await Promise.all([
+  const [objectives, workspace, live, reactivatable, rhythmConfig] = await Promise.all([
     listObjectives(),
     getWorkspaceState(),
     getLiveObjectiveRecord(),
     getReactivatableArchivedObjective(),
+    fetchRhythmGlobalConfig(),
   ]);
 
   const liveDto = live
@@ -45,6 +47,8 @@ export default async function SettingsPage() {
       viewId={workspace.viewId}
       isArchiveView={workspace.isArchiveView}
       today={today}
+      rhythmOddMinutes={rhythmConfig.oddMinutes}
+      rhythmEvenMinutes={rhythmConfig.evenMinutes}
     />
   );
 }

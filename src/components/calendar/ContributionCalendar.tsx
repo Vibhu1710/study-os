@@ -17,6 +17,10 @@ import { cn } from "@/lib/cn";
 import { DroppableCalendarDay } from "@/components/home/PlanTopicDragDrop";
 import { toDateString } from "@/lib/dates";
 import { getCalendarDayPresentation } from "@/lib/calendar-day-visual";
+import {
+  formatRhythmDuration,
+  formatRhythmDurationCompact,
+} from "@/lib/rhythm/effective-minutes";
 import { formatWeightDisplay } from "@/lib/weight";
 import { PhaseBlockSvgOutline } from "@/components/calendar/PhaseBlockSvgOutline";
 
@@ -38,6 +42,11 @@ export type DayStat = {
   previews?: string[];
   /** Today's ticks are live projections until midnight. */
   isProjection?: boolean;
+  /** Rhythm tab: effective study minutes (for mixed tooltips). */
+  rhythmEffectiveMinutes?: number;
+  rhythmStartTime?: string;
+  rhythmEndTime?: string;
+  rhythmBreakMinutes?: number;
 };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -57,6 +66,12 @@ export function ContributionCalendar({
   planDayDropTargets = false,
   planDropHighlightDate = null,
   canReceivePlanDrop,
+  disableFutureDays = false,
+  showPhaseOutline = true,
+  showPhaseCaption = true,
+  effortHeat = false,
+  coverageDays,
+  heatViewToggle,
 }: {
   selectedDate: string;
   initialMonth?: string;
@@ -75,6 +90,20 @@ export function ContributionCalendar({
   /** Date under the pointer while dragging a topic card. */
   planDropHighlightDate?: string | null;
   canReceivePlanDrop?: (date: string) => boolean;
+  /** Rhythm: cannot select dates after today. */
+  disableFutureDays?: boolean;
+  showPhaseOutline?: boolean;
+  /** Phase name + date range above the grid (home/syllabus). */
+  showPhaseCaption?: boolean;
+  /** Label heat tooltips as effective study time (totalWeight = hours). */
+  effortHeat?: boolean;
+  /** Mixed tooltip: coverage stats when effortHeat is on. */
+  coverageDays?: Record<string, DayStat>;
+  /** Rhythm page: Effort / Coverage heat inside the calendar header. */
+  heatViewToggle?: {
+    mode: "effort" | "coverage";
+    onChange: (mode: "effort" | "coverage") => void;
+  };
 }) {
   const [viewMonth, setViewMonth] = useState(() =>
     startOfMonth(initialMonth ? parseISO(initialMonth) : parseISO(selectedDate)),
@@ -102,7 +131,9 @@ export function ContributionCalendar({
     let max = 0;
     let min = Infinity;
     for (const stat of Object.values(days)) {
-      const w = stat?.totalWeight ?? 0;
+      const w = effortHeat
+        ? (stat?.rhythmEffectiveMinutes ?? 0) / 60
+        : (stat?.totalWeight ?? 0);
       if (w > max) max = w;
       if (w > 0 && w < min) min = w;
     }
@@ -110,10 +141,14 @@ export function ContributionCalendar({
       maxObjectiveCompletedWeight: Math.max(1, max),
       minObjectiveCompletedWeight: min === Infinity ? 0 : min,
     };
-  }, [days]);
+  }, [days, effortHeat]);
 
-  const hoverStat = hoverDate ? days[hoverDate] : null;
+  const hoverStat = hoverDate
+    ? (days[hoverDate] ?? coverageDays?.[hoverDate] ?? null)
+    : null;
   const hasPhase = Boolean(phaseStart && phaseEnd);
+  /** Rhythm tab: hide syllabus weight numerals; show effective time separately. */
+  const isRhythmCalendar = Boolean(heatViewToggle);
 
   return (
     <div className="card relative w-full p-4 [--phase-cell-base:#1c2128]">
@@ -147,19 +182,51 @@ export function ContributionCalendar({
             </span>
           </p>
         </div>
-        <button
-          type="button"
-          className="btn text-xs"
-          onClick={() => {
-            setViewMonth(startOfMonth(parseISO(today)));
-            onSelect(today);
-          }}
-        >
-          Today
-        </button>
+        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+          {heatViewToggle && (
+            <div
+              className="inline-flex rounded-lg border border-[var(--border)] p-0.5"
+              role="tablist"
+              aria-label="Calendar heat view"
+            >
+              {(
+                [
+                  { id: "effort" as const, label: "Effort" },
+                  { id: "coverage" as const, label: "Coverage" },
+                ] as const
+              ).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={heatViewToggle.mode === m.id}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 font-mono text-[10px]",
+                    heatViewToggle.mode === m.id
+                      ? "bg-[var(--accent)] font-semibold text-[#0d1117]"
+                      : "text-[var(--text-muted)]",
+                  )}
+                  onClick={() => heatViewToggle.onChange(m.id)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            className="btn text-xs"
+            onClick={() => {
+              setViewMonth(startOfMonth(parseISO(today)));
+              onSelect(today);
+            }}
+          >
+            Today
+          </button>
+        </div>
       </div>
 
-      {hasPhase && (
+      {hasPhase && showPhaseCaption && (
         <div className="mb-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
           <p className="font-mono text-[10px] text-[var(--text-muted)]">
             <span className="text-[var(--text)]">{phaseName ?? "Active phase"}</span>
@@ -193,7 +260,7 @@ export function ContributionCalendar({
           className="relative grid grid-cols-7 gap-[6px] overflow-visible [--calendar-cell-gap:6px]"
           style={{ background: "transparent" }}
         >
-          {hasPhase && (
+          {hasPhase && showPhaseOutline && (
             <PhaseBlockSvgOutline
               gridRef={dayGridRef}
               cellKeys={cellKeys}
@@ -210,12 +277,15 @@ export function ContributionCalendar({
           const inMonth = isSameMonth(cellDate, viewMonth);
           const stat = days[key] ?? {};
           const outOfObjective = key < objectiveStart || key > objectiveEnd;
-          const disabled = outOfObjective;
+          const disabled =
+            outOfObjective || (disableFutureDays && key > today);
           const isSelected = key === selectedDate;
           const isToday = key === today;
           const presentation = getCalendarDayPresentation(key, today, {
             outOfObjective,
-            completedWeight: stat.totalWeight ?? 0,
+            completedWeight: effortHeat
+              ? (stat.rhythmEffectiveMinutes ?? 0) / 60
+              : (stat.totalWeight ?? 0),
             plannedWeight: stat.plannedTotalWeight ?? 0,
             completedSlices: stat.completedSubjectBreakdown ?? [],
             plannedSlices: stat.plannedSubjectBreakdown ?? [],
@@ -226,6 +296,17 @@ export function ContributionCalendar({
             planDayDropTargets && !disabled && (canReceivePlanDrop?.(key) ?? true);
           const dropHighlighted =
             planDayDropTargets && dropEnabled && planDropHighlightDate === key;
+
+          const hasBottomStripe =
+            Boolean(presentation.bottomStripe) &&
+            presentation.bottomStripeWidthFrac > 0;
+          const rhythmDurationBottom = hasBottomStripe ? "bottom-[9px]" : "bottom-[5px]";
+          const showEffortDuration =
+            isRhythmCalendar &&
+            effortHeat &&
+            (stat.rhythmEffectiveMinutes ?? 0) > 0 &&
+            !disabled;
+          const showCoverageWeights = isRhythmCalendar && !effortHeat && !disabled;
 
           const dayButton = (
             <button
@@ -292,7 +373,8 @@ export function ContributionCalendar({
               >
                 {format(cellDate, "d")}
               </span>
-              {presentation.topWeightLabel != null && (
+              {(!isRhythmCalendar || showCoverageWeights) &&
+                presentation.topWeightLabel != null && (
                 <span
                   className="absolute right-0.5 top-[7px] z-[2] font-mono text-[8px] font-semibold leading-none text-[var(--text)]"
                   style={{ textShadow: "0 0 4px var(--bg-elevated)" }}
@@ -300,14 +382,27 @@ export function ContributionCalendar({
                   {formatWeightDisplay(presentation.topWeightLabel)}
                 </span>
               )}
-              {presentation.bottomWeightLabel != null && (
+              {showEffortDuration && (
                 <span
-                  className="absolute bottom-[7px] right-0.5 z-[2] font-mono text-[8px] font-semibold leading-none text-[var(--text)]"
+                  className={cn(
+                    "absolute left-0 right-0 z-[2] text-center font-mono text-[7px] font-semibold leading-tight text-[var(--text)]",
+                    rhythmDurationBottom,
+                  )}
                   style={{ textShadow: "0 0 4px var(--bg-elevated)" }}
                 >
-                  {formatWeightDisplay(presentation.bottomWeightLabel)}
+                  {formatRhythmDurationCompact(stat.rhythmEffectiveMinutes ?? 0)}
                 </span>
               )}
+              {(!isRhythmCalendar || showCoverageWeights) &&
+                !showEffortDuration &&
+                presentation.bottomWeightLabel != null && (
+                  <span
+                    className="absolute bottom-[7px] right-0.5 z-[2] font-mono text-[8px] font-semibold leading-none text-[var(--text)]"
+                    style={{ textShadow: "0 0 4px var(--bg-elevated)" }}
+                  >
+                    {formatWeightDisplay(presentation.bottomWeightLabel)}
+                  </span>
+                )}
             </button>
           );
 
@@ -341,76 +436,123 @@ export function ContributionCalendar({
 
       {hoverDate && tooltipPos && hoverStat && (
           <div
-            className="pointer-events-none fixed z-[100] max-w-[260px] -translate-x-1/2 -translate-y-full rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 shadow-lg"
+            className="pointer-events-none fixed z-[100] max-w-[280px] -translate-x-1/2 -translate-y-full rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 shadow-lg"
             style={{ left: tooltipPos.x, top: tooltipPos.y - 8 }}
           >
             <p className="font-mono text-[10px] text-[var(--text-muted)]">
               {format(parseISO(hoverDate), "d MMM yyyy")}
             </p>
-            {(hoverStat.totalWeight ?? 0) > 0 || (hoverStat.plannedTotalWeight ?? 0) > 0 ? (
+            {(hoverStat.rhythmEffectiveMinutes ?? 0) > 0 && (
+              <div className="mt-1 border-b border-[var(--border)] pb-2 text-xs">
+                <p className="font-medium text-[var(--accent)]">
+                  {formatRhythmDuration(hoverStat.rhythmEffectiveMinutes ?? 0)} effective study
+                </p>
+                {(hoverStat.rhythmStartTime || hoverStat.rhythmEndTime) && (
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+                    {[hoverStat.rhythmStartTime, hoverStat.rhythmEndTime]
+                      .filter(Boolean)
+                      .join(" → ")}
+                    {hoverStat.rhythmBreakMinutes != null &&
+                      hoverStat.rhythmBreakMinutes > 0 &&
+                      ` · ${heatViewToggle ? formatRhythmDuration(hoverStat.rhythmBreakMinutes) : `${Math.round(hoverStat.rhythmBreakMinutes)}m`} break`}
+                  </p>
+                )}
+              </div>
+            )}
+            {(() => {
+              const cov = coverageDays?.[hoverDate] ?? hoverStat;
+              const tw = cov?.totalWeight ?? 0;
+              const pw = cov?.plannedTotalWeight ?? 0;
+              if (tw <= 0 && pw <= 0) {
+                if ((hoverStat.rhythmEffectiveMinutes ?? 0) <= 0) {
+                  return (
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">No activity</p>
+                  );
+                }
+                return null;
+              }
+              return (
               <>
-                {(hoverStat.totalWeight ?? 0) > 0 && (
+                {tw > 0 && (
                   <p className="mt-1 text-xs">
-                    {formatWeightDisplay(hoverStat.totalWeight ?? 0)} wt completed
-                    {hoverStat.isProjection && (
+                    {formatWeightDisplay(tw)} wt completed
+                    {cov?.isProjection && (
                       <span className="text-[var(--accent-amber)]"> · projected</span>
                     )}
                   </p>
                 )}
-                {(hoverStat.plannedTotalWeight ?? 0) > 0 && (
+                {pw > 0 && (
                   <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                    {formatWeightDisplay(hoverStat.plannedTotalWeight ?? 0)} wt planned
+                    {formatWeightDisplay(pw)} wt planned
                   </p>
                 )}
-                {hoverStat.previews && hoverStat.previews.length > 0 && (
+                {cov?.previews && cov.previews.length > 0 && (
                   <ul className="mt-1 space-y-0.5 text-[10px] text-[var(--text-muted)]">
-                    {hoverStat.previews.map((p) => (
+                    {cov.previews.map((p) => (
                       <li key={p} className="truncate">{p}</li>
                     ))}
                   </ul>
                 )}
               </>
-            ) : (
-              <p className="mt-1 text-xs text-[var(--text-muted)]">No activity</p>
-            )}
-            {(hoverStat.completedSubjectBreakdown?.length ?? 0) > 0 && (
-              <ul className="mt-2 space-y-0.5 border-t border-[var(--border)] pt-2 text-[10px]">
-                <li className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">
-                  Completed
-                </li>
-                {hoverStat.completedSubjectBreakdown!.map((s) => (
-                  <li key={s.subjectId} className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: s.color }}
-                      />
-                      {s.name}
-                    </span>
-                    <span className="font-mono text-[var(--text-muted)]">{s.weight} wt</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {(hoverStat.plannedSubjectBreakdown?.length ?? 0) > 0 && (
-              <ul className="mt-2 space-y-0.5 border-t border-[var(--border)] pt-2 text-[10px]">
-                <li className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">
-                  Planned
-                </li>
-                {hoverStat.plannedSubjectBreakdown!.map((s) => (
-                  <li key={`p-${s.subjectId}`} className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: s.color }}
-                      />
-                      {s.name}
-                    </span>
-                    <span className="font-mono text-[var(--text-muted)]">{s.weight} wt</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+              );
+            })()}
+            {(() => {
+              const cov = coverageDays?.[hoverDate] ?? hoverStat;
+              const completed = cov?.completedSubjectBreakdown ?? [];
+              const planned = cov?.plannedSubjectBreakdown ?? [];
+              return (
+                <>
+                  {completed.length > 0 && (
+                    <ul className="mt-2 space-y-0.5 border-t border-[var(--border)] pt-2 text-[10px]">
+                      <li className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">
+                        Completed
+                      </li>
+                      {completed.map((s) => (
+                        <li
+                          key={s.subjectId}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span
+                              className="h-1.5 w-1.5 shrink-0 rounded-full"
+                              style={{ background: s.color }}
+                            />
+                            {s.name}
+                          </span>
+                          <span className="font-mono text-[var(--text-muted)]">
+                            {s.weight} wt
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {planned.length > 0 && (
+                    <ul className="mt-2 space-y-0.5 border-t border-[var(--border)] pt-2 text-[10px]">
+                      <li className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">
+                        Planned
+                      </li>
+                      {planned.map((s) => (
+                        <li
+                          key={`p-${s.subjectId}`}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span
+                              className="h-1.5 w-1.5 shrink-0 rounded-full"
+                              style={{ background: s.color }}
+                            />
+                            {s.name}
+                          </span>
+                          <span className="font-mono text-[var(--text-muted)]">
+                            {s.weight} wt
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
     </div>

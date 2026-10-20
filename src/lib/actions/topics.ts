@@ -24,6 +24,10 @@ import {
 } from "@/lib/weight";
 import { assertWritable } from "@/lib/objective-context";
 import {
+  syncLeafTopicCompletionSnapshots,
+  syncSubtopicCompletionSnapshots,
+} from "@/lib/services/completion-weight-sync";
+import {
   completeSubtopic,
   completeTopicWithoutSubtopics,
   rescheduleSubtopicCompletion,
@@ -150,6 +154,8 @@ export async function updateTopic(
   await db.update(topics).set(patch).where(eq(topics.id, id));
   if (topic.subtopics.length > 0) {
     await setTopicWeightFromSubtopics(id);
+  } else if (patch.weight !== undefined) {
+    await syncLeafTopicCompletionSnapshots(id, patch.weight);
   }
   revalidate();
 }
@@ -283,6 +289,7 @@ export async function updateSubtopic(
   }
   await db.update(subtopics).set(patch).where(eq(subtopics.id, id));
   if (patch.weight !== undefined) {
+    await syncSubtopicCompletionSnapshots(id, patch.weight);
     await setTopicWeightFromSubtopics(sub.topicId);
   }
   revalidate();
@@ -325,10 +332,9 @@ export async function rebalanceSubtopicsEvenly(topicId: string) {
   if (subs.length === 0) return;
   const weights = spreadWeightsEvenly(topic.weight, subs.length);
   for (let i = 0; i < subs.length; i++) {
-    await db
-      .update(subtopics)
-      .set({ weight: weights[i] ?? subs[i].weight })
-      .where(eq(subtopics.id, subs[i].id));
+    const w = weights[i] ?? subs[i].weight;
+    await db.update(subtopics).set({ weight: w }).where(eq(subtopics.id, subs[i].id));
+    await syncSubtopicCompletionSnapshots(subs[i].id, w);
   }
   revalidate();
 }

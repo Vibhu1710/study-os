@@ -5,12 +5,9 @@ import { revalidatePath } from "next/cache";
 import { getDb, newId } from "@/db";
 import { objectives, phaseTopics, phases, subjects, topics } from "@/db/schema";
 import {
-  hasRoomForMinPhase,
   inclusiveDayCount,
   isDateInRange,
-  MIN_PHASE_DAYS,
   minDateString,
-  phaseEndLeavesShortRemainder,
   toDateString,
 } from "@/lib/dates";
 import { assertWritable } from "@/lib/objective-context";
@@ -33,23 +30,9 @@ function revalidate() {
   revalidatePath("/dashboard");
 }
 
-function assertPhaseSpan(
-  startDate: string,
-  endDate: string,
-  objectiveEnd: string,
-) {
-  if (!hasRoomForMinPhase(startDate, objectiveEnd)) {
-    throw new Error(
-      `Not enough time left in the study cycle for a ${MIN_PHASE_DAYS}-day phase. Choose an earlier start date.`,
-    );
-  }
-  if (phaseEndLeavesShortRemainder(endDate, objectiveEnd)) {
-    throw new Error(
-      "That end date leaves fewer than 7 days in the study cycle. End the phase on the cycle end date.",
-    );
-  }
-  if (inclusiveDayCount(startDate, endDate) < MIN_PHASE_DAYS) {
-    throw new Error(`A phase must last at least ${MIN_PHASE_DAYS} days.`);
+function assertPhaseSpan(startDate: string, endDate: string) {
+  if (inclusiveDayCount(startDate, endDate) < 1) {
+    throw new Error("Phase must include at least one day.");
   }
 }
 
@@ -88,7 +71,7 @@ export async function createPhase(
   if (input.startDate > input.endDate) {
     throw new Error("Invalid phase date range.");
   }
-  assertPhaseSpan(input.startDate, input.endDate, objective.endDate);
+  assertPhaseSpan(input.startDate, input.endDate);
 
   const topicIds =
     input.topicIds ??
@@ -174,7 +157,7 @@ export async function updateCurrentPhase(
     throw new Error("Phase dates must fall within the study cycle range.");
   }
   if (input.startDate > input.endDate) throw new Error("Invalid phase date range.");
-  assertPhaseSpan(input.startDate, input.endDate, objective.endDate);
+  assertPhaseSpan(input.startDate, input.endDate);
   const existingPhaseTopics = await db.query.phaseTopics.findMany({
     where: eq(phaseTopics.phaseId, phase.id),
     columns: { topicId: true },

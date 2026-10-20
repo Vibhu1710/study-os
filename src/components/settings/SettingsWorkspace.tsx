@@ -21,6 +21,7 @@ import {
   type DateString,
 } from "@/lib/date-span";
 import { addDaysString, maxDateString, minObjectiveEndDate } from "@/lib/dates";
+import { RhythmSandglassCompact } from "@/components/settings/RhythmSandglassSettings";
 
 type Objective = {
   id: string;
@@ -38,6 +39,8 @@ export function SettingsWorkspace({
   viewId,
   isArchiveView,
   today,
+  rhythmOddMinutes,
+  rhythmEvenMinutes,
 }: {
   objectives: Objective[];
   liveObjective: Objective | null;
@@ -45,6 +48,8 @@ export function SettingsWorkspace({
   viewId: string | null;
   isArchiveView: boolean;
   today: string;
+  rhythmOddMinutes: number;
+  rhythmEvenMinutes: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -127,8 +132,9 @@ export function SettingsWorkspace({
       )}
 
       {liveObjective ? (
+        <div className="flex flex-wrap items-start gap-3">
         <form
-          className="card max-w-lg space-y-4 p-4"
+          className="card w-full min-w-[280px] max-w-lg shrink-0 space-y-4 p-4"
           onSubmit={(e) => {
             e.preventDefault();
             setEditError(null);
@@ -168,7 +174,7 @@ export function SettingsWorkspace({
                 : [`Cannot be before today (${today}).`]
             }
             endLegendExtra={[
-              "Study cycles must span at least 14 days (start and end both count).",
+              "Study cycles must span at least 7 days (start and end both count).",
             ]}
           />
           {editError && <p className="text-xs text-[var(--danger)]">{editError}</p>}
@@ -194,6 +200,11 @@ export function SettingsWorkspace({
             </button>
           </div>
         </form>
+        <RhythmSandglassCompact
+          oddMinutes={rhythmOddMinutes}
+          evenMinutes={rhythmEvenMinutes}
+        />
+        </div>
       ) : (
         <>
           {reactivatableObjective && (
@@ -306,7 +317,7 @@ export function SettingsWorkspace({
             endLabel="End date"
             startLegendExtra={[`Cannot be before today (${today}).`]}
             endLegendExtra={[
-              "Study cycles must span at least 14 days (start and end both count).",
+              "Study cycles must span at least 7 days (start and end both count).",
               `Today (${today}) must fall within the range to use Calendar / Syllabus.`,
             ]}
           />

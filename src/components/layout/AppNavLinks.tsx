@@ -8,6 +8,7 @@ const nav = [
   { href: "/", label: "Calendar" },
   { href: "/syllabus", label: "Syllabus" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/rhythm", label: "Study Momentum" },
 ];
 
 function isActive(pathname: string, href: string) {

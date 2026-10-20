@@ -7,6 +7,7 @@ import {
   getWorkspaceState,
   listObjectives,
 } from "@/lib/actions/objectives";
+import { RhythmCycleShortcut } from "@/components/rhythm/RhythmCycleShortcut";
 import { CompletionDatesProvider } from "@/lib/completion-dates-context";
 import { fetchCompletionDates } from "@/lib/completion-dates";
 import { toDateString } from "@/lib/dates";
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           >
             {children}
           </AppShell>
+          <RhythmCycleShortcut />
         </CompletionDatesProvider>
       </body>
     </html>

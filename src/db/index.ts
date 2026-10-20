@@ -166,6 +166,75 @@ function runMigrations(database: Database.Database) {
   } catch {
     /* column exists */
   }
+  try {
+    database.exec(
+      `ALTER TABLE objectives ADD COLUMN rhythm_odd_minutes_frozen REAL`,
+    );
+  } catch {
+    /* exists */
+  }
+  try {
+    database.exec(
+      `ALTER TABLE objectives ADD COLUMN rhythm_even_minutes_frozen REAL`,
+    );
+  } catch {
+    /* exists */
+  }
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id TEXT PRIMARY KEY,
+      rhythm_odd_cycle_minutes REAL NOT NULL DEFAULT 27,
+      rhythm_even_cycle_minutes REAL NOT NULL DEFAULT 22,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS rhythm_sessions (
+      id TEXT PRIMARY KEY,
+      objective_id TEXT NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      starts_with_odd_cycle INTEGER NOT NULL,
+      full_cycle_count INTEGER NOT NULL DEFAULT 0,
+      start_partial_tenths INTEGER NOT NULL DEFAULT 0,
+      end_partial_tenths INTEGER NOT NULL DEFAULT 0,
+      continued_from_previous_day INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS rhythm_sessions_objective_date ON rhythm_sessions(objective_id, date);
+    CREATE INDEX IF NOT EXISTS rhythm_sessions_objective_idx ON rhythm_sessions(objective_id);
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS rhythm_day_notes (
+      id TEXT PRIMARY KEY,
+      objective_id TEXT NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS rhythm_day_notes_objective_date_unique ON rhythm_day_notes(objective_id, date);
+    CREATE INDEX IF NOT EXISTS rhythm_day_notes_date_idx ON rhythm_day_notes(objective_id, date);
+  `);
+  for (const sql of [
+    `ALTER TABLE rhythm_sessions ADD COLUMN entries_json TEXT`,
+    `ALTER TABLE rhythm_sessions ADD COLUMN start_time_confirmed INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE rhythm_sessions ADD COLUMN end_time_confirmed INTEGER NOT NULL DEFAULT 0`,
+  ]) {
+    try {
+      database.exec(sql);
+    } catch {
+      /* column exists */
+    }
+  }
+  const settingsCount = database
+    .prepare(`SELECT COUNT(*) as c FROM app_settings WHERE id = 'default'`)
+    .get() as { c: number };
+  if (settingsCount.c === 0) {
+    database
+      .prepare(
+        `INSERT INTO app_settings (id, rhythm_odd_cycle_minutes, rhythm_even_cycle_minutes, updated_at) VALUES ('default', 27, 22, ?)`,
+      )
+      .run(new Date().toISOString());
+  }
 }
 
 export function newId() {

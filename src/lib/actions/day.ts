@@ -32,6 +32,7 @@ function revalidate() {
   revalidatePath("/");
   revalidatePath("/syllabus");
   revalidatePath("/dashboard");
+  revalidatePath("/rhythm");
 }
 
 export async function fetchDayPlan(objectiveId: string, date: string) {

@@ -112,3 +112,43 @@ body {
 .input:focus {
   border-color: var(--accent);
 }
+
+/** Partial sandglass — tick scale + subtle thumb (no accent track). */
+.rhythm-sand-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  margin-top: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+.rhythm-sand-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.rhythm-sand-slider::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--border);
+}
+.rhythm-sand-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 7px;
+  height: 7px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 55%, var(--text));
+  border: 1px solid var(--border);
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+}
+.rhythm-sand-slider::-moz-range-track {
+  height: 1px;
+  background: var(--border);
+}
+.rhythm-sand-slider::-moz-range-thumb {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 55%, var(--text));
+  border: 1px solid var(--border);
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+}

@@ -20,8 +20,79 @@ export const objectives = sqliteTable("objectives", {
   currentPhaseId: text("current_phase_id"),
   /** JSON array of topic ids to pre-fill the next phase after the current one ends. */
   pendingPhaseTopicIds: text("pending_phase_topic_ids"),
+  /** Frozen sandglass minutes when this cycle archived (Rhythm). */
+  rhythmOddMinutesFrozen: real("rhythm_odd_minutes_frozen"),
+  rhythmEvenMinutesFrozen: real("rhythm_even_minutes_frozen"),
   createdAt: text("created_at").notNull(),
 });
+
+/** Global app preferences (single row id = "default"). */
+export const appSettings = sqliteTable("app_settings", {
+  id: text("id").primaryKey(),
+  rhythmOddCycleMinutes: real("rhythm_odd_cycle_minutes").notNull().default(27),
+  rhythmEvenCycleMinutes: real("rhythm_even_cycle_minutes").notNull().default(22),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Effort-view journal on Rhythm (separate from calendar day_notes). */
+export const rhythmDayNotes = sqliteTable(
+  "rhythm_day_notes",
+  {
+    id: text("id").primaryKey(),
+    objectiveId: text("objective_id")
+      .notNull()
+      .references(() => objectives.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    body: text("body").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("rhythm_day_notes_objective_date_unique").on(
+      t.objectiveId,
+      t.date,
+    ),
+    index("rhythm_day_notes_date_idx").on(t.objectiveId, t.date),
+  ],
+);
+
+export const rhythmSessions = sqliteTable(
+  "rhythm_sessions",
+  {
+    id: text("id").primaryKey(),
+    objectiveId: text("objective_id")
+      .notNull()
+      .references(() => objectives.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    startTime: text("start_time").notNull(),
+    endTime: text("end_time").notNull(),
+    /** First full flip of the day is odd-type (true) or even-type (false). */
+    startsWithOddCycle: integer("starts_with_odd_cycle", { mode: "boolean" }).notNull(),
+    /** Complete sandglass flips between start/end partials. */
+    fullCycleCount: integer("full_cycle_count").notNull().default(0),
+    /** 0 = no start partial; 1–9 = remaining tenths of first flip (carry). */
+    startPartialTenths: integer("start_partial_tenths").notNull().default(0),
+    /** 0 = day ended on complete flip; 1–9 = sand moved on last flip. */
+    endPartialTenths: integer("end_partial_tenths").notNull().default(0),
+    continuedFromPreviousDay: integer("continued_from_previous_day", {
+      mode: "boolean",
+    })
+      .notNull()
+      .default(false),
+    /** JSON RhythmFlipEntry[] — authoritative cycle log when present. */
+    entriesJson: text("entries_json"),
+    startTimeConfirmed: integer("start_time_confirmed", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    endTimeConfirmed: integer("end_time_confirmed", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("rhythm_sessions_objective_date").on(t.objectiveId, t.date),
+    index("rhythm_sessions_objective_idx").on(t.objectiveId),
+  ],
+);
 
 export const subjects = sqliteTable(
   "subjects",

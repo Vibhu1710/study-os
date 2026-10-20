@@ -47,6 +47,12 @@ export async function syncObjectiveStatuses() {
         .update(objectives)
         .set({ status: nextStatus })
         .where(eq(objectives.id, o.id));
+      if (nextStatus === "archived" && o.status !== "archived") {
+        const { freezeRhythmConfigOnObjective } = await import(
+          "@/lib/services/rhythm-config"
+        );
+        await freezeRhythmConfigOnObjective(o.id);
+      }
     }
   }
 }

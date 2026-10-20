@@ -1,10 +1,10 @@
 /** YYYY-MM-DD */
 export type DateString = string;
 
-/** Inclusive. 2026-10-04 through 2026-10-10 is 7. */
-export const MIN_PHASE_DAYS = 7;
-/** Inclusive. Two weeks, same counting as a phase. */
-export const MIN_OBJECTIVE_DAYS = 14;
+/** Phases may be a single day (inclusive). */
+export const MIN_PHASE_DAYS = 1;
+/** Inclusive. Study cycles must span at least one week. */
+export const MIN_OBJECTIVE_DAYS = 7;
 
 function dateStringToUtcMs(s: DateString): number {
   const [y, m, d] = s.split("-").map(Number);
